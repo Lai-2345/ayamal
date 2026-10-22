@@ -1,0 +1,193 @@
+"""Generate the English page from the Arabic source and the translations below."""
+
+from html import escape
+from pathlib import Path
+import re
+
+
+TRANSLATIONS = {
+    "أيام الصبا - الصفحة الرئيسية": "Ayam Al-Sabah - Home",
+    "شعار أيام الصبا": "Ayam Al-Sabah logo",
+    "أيام الصبا": "Ayam Al-Sabah",
+    "للسفر والسياحة": "Travel & Tourism",
+    "التنقل الرئيسي": "Main navigation",
+    "الرئيسية": "Home",
+    "عن الأيام": "About us",
+    "خدماتنا": "Our services",
+    "الوجهات": "Destinations",
+    "تواصل معنا": "Contact us",
+    "English version": "English version",
+    "خطط رحلتك": "Plan your trip",
+    "فتح القائمة": "Open menu",
+    "رحلات تُحكى، وذكريات تبقى": "Journeys to share, memories to treasure",
+    "وجهتك تبدأ من": "Your journey starts",
+    "هنا": "here",
+    "نرتب التفاصيل، لتعيش اللحظة. تجارب سفر مصممة حولك، بخبرة محلية ولمسة إنسانية تجعل كل رحلة أقرب إلى القلب.": "We take care of the details so you can enjoy the moment. Travel experiences shaped around you, with local expertise and a personal touch that makes every journey memorable.",
+    "اكتشف وجهتك": "Explore destinations",
+    "لماذا أيام الصبا؟": "Why Ayam Al-Sabah?",
+    "بثقة واهتمام": "Travel with confidence",
+    "من أول خطوة حتى العودة": "From departure to return",
+    "دعم يرافقك": "Support at every step",
+    "قبل الرحلة وأثناءها": "Before and during your trip",
+    "مسافر يتأمل منظراً طبيعياً": "A traveler taking in the scenery",
+    "كل طريق يحمل قصة جديدة": "Every road has a new story",
+    "الصبا": "Al-Sabah",
+    "رحلاتك، بطريقتك": "Your trip, your way",
+    "نصممها لتشبهك": "Designed around you",
+    "مرر لاكتشاف المزيد": "Scroll to explore",
+    "مؤشرات الثقة": "Why travelers trust us",
+    "في كل رحلة": "On every journey",
+    "العناية بالتفاصيل": "Attention to detail",
+    "تصنع الفرق": "makes the difference",
+    "عاماً من": "years of",
+    "الخبرة": "experience",
+    "مسافر عاش": "travelers shared",
+    "تجربته معنا": "the journey with us",
+    "دعم ومساندة": "help and support",
+    "طوال الرحلة": "throughout your trip",
+    "نصنع": "Creating",
+    "الذكرى": "memories",
+    "عن أيام الصبا": "About Ayam Al-Sabah",
+    "السفر ليس": "Travel is more than",
+    "مسافة فقط.": "a distance.",
+    "هو شعور، ولقاء، وتفصيل صغير سيبقى معك طويلاً. في أيام الصبا نؤمن أن الرحلة الجميلة تبدأ قبل الوصول؛ تبدأ من إصغائنا لما تبحث عنه.": "It is a feeling, an encounter, and a small detail you will remember for years. At Ayam Al-Sabah, we believe a beautiful journey begins before you arrive. It begins when we listen to what you are looking for.",
+    "نرافقك بخبرة فريق يعرف الوجهات ويقدر وقتك. من فكرة عابرة إلى برنامج كامل، نصنع لك مساحة لتسافر بهدوء وتعود بحكاية تستحق أن تُروى.": "Our team knows the destinations and respects your time. From a passing idea to a complete itinerary, we make room for you to travel with peace of mind and return with a story worth telling.",
+    "تعرّف علينا أكثر": "Get to know us",
+    "طريق بين الجبال": "Road through the mountains",
+    "من هنا": "This is where",
+    "تبدأ الحكاية": "the story begins",
+    "«السفر يتركك": "“Travel leaves you",
+    "أوسع من قبل»": "richer than before”",
+    "كل ما تحتاجه": "Everything you need",
+    "لرحلة أسهل": "for an easier trip",
+    "لا نبيعك برنامجاً جاهزاً؛ نصغي لك أولاً، ثم نرتب تجربة تناسب إيقاعك وتوقعاتك.": "We listen first, then put together an experience that fits your pace and expectations.",
+    "تنظيم البرامج": "Tailored itineraries",
+    "برامج مرتبة للأفراد والعائلات والمجموعات، من زيارة الحرمين إلى اكتشاف جدة.": "Thoughtfully planned trips for individuals, families, and groups, from visits to the holy mosques to discovering Jeddah.",
+    "استفسر عن تنظيم البرامج": "Ask about tailored itineraries",
+    "قطار الحرمين": "Haramain High Speed Railway",
+    "تنسيق رحلات القطار بين مكة والمدينة وجدة، بمواعيد واضحة وتجربة أكثر راحة.": "Rail journeys between Makkah, Madinah, and Jeddah, with clear schedules and a more comfortable experience.",
+    "استفسر عن قطار الحرمين": "Ask about Haramain train travel",
+    "الطيران": "Flights",
+    "خيارات طيران مناسبة لضيوف الرحمن من مختلف الدول، مع متابعة تفاصيل الرحلة.": "Flight options for pilgrims from around the world, with careful attention to every travel detail.",
+    "استفسر عن الطيران": "Ask about flights",
+    "النقل البري": "Ground transport",
+    "سيارات خاصة، حافلات للمجموعات، ونقل منظم بين المطار والفندق والوجهات.": "Private cars, group coaches, and coordinated transfers between the airport, hotel, and destinations.",
+    "استفسر عن النقل البري": "Ask about ground transport",
+    "الحجوزات": "Bookings",
+    "إقامة ومواعيد وتنقلات متناسقة، بخيارات مرنة تناسب احتياج كل مسافر.": "Accommodation, schedules, and transfers arranged together, with flexible options for every traveler.",
+    "استفسر عن الحجوزات": "Ask about bookings",
+    "مرافقة ودعم": "Guidance and support",
+    "فريق يتابعك قبل الوصول وأثناء البرنامج لتعيش رحلتك باطمئنان.": "A team that checks in before you arrive and throughout your trip so you can travel with peace of mind.",
+    "استفسر عن مرافقة ودعم": "Ask about guidance and support",
+    "ضيوفنا من كل مكان": "Welcoming guests from everywhere",
+    "أهلاً بكل مسلم": "A warm welcome",
+    "في رحاب مكة": "to Makkah",
+    "نستقبل ضيوف الرحمن من المغرب وماليزيا وإندونيسيا وموريشيوس ومن مختلف الدول الإسلامية، ونصمم لهم برامج مريحة تبدأ من الوصول وتستمر حتى العودة.": "We welcome pilgrims from Morocco, Malaysia, Indonesia, Mauritius, and other countries around the world. Our comfortable itineraries support them from arrival to the journey home.",
+    "المغرب": "Morocco",
+    "ماليزيا": "Malaysia",
+    "إندونيسيا": "Indonesia",
+    "موريشيوس": "Mauritius",
+    "ودول إسلامية كثيرة": "And many more countries",
+    "اختر مزاجك": "Find your inspiration",
+    "وجهات تفتح": "Destinations that open",
+    "نوافذ جديدة": "new horizons",
+    "شاهد كل الوجهات": "Explore all destinations",
+    "الكعبة المشرفة في مكة المكرمة": "The Holy Kaaba in Makkah",
+    "الوجهة الأولى": "Our first destination",
+    "مكة المكرمة": "Makkah",
+    "برامج عمرة وزيارات للحرم مع سكن ونقل مرتب من البداية.": "Umrah trips and visits to the Grand Mosque, with accommodation and transport arranged from the start.",
+    "استفسر عن مكة المكرمة": "Ask about Makkah",
+    "استفسر عن الرحلة": "Ask about this trip",
+    "المسجد النبوي في المدينة المنورة": "Mountain road landscape",
+    "سكينة وطمأنينة": "Peace and tranquility",
+    "المدينة المنورة": "Madinah",
+    "زيارة المسجد النبوي وتجربة هادئة بتفاصيل تليق بضيوف الرحمن.": "Visit the Prophet's Mosque and enjoy a peaceful experience thoughtfully planned for pilgrims.",
+    "استفسر عن المدينة المنورة": "Ask about Madinah",
+    "واجهة جدة البحرية": "Jeddah waterfront",
+    "بحر وحكاية": "Sea and stories",
+    "جدة": "Jeddah",
+    "كورنيش جدة وواجهة البحر وتجارب المدينة في برنامج واحد.": "Jeddah's Corniche, waterfront, and city experiences in one itinerary.",
+    "استفسر عن جدة": "Ask about Jeddah",
+    "لماذا نحن؟": "Why choose us?",
+    "أنت في": "You are in",
+    "أيدٍ أمينة": "good hands",
+    "من أول مكالمة حتى آخر صورة، نؤمن أن الاهتمام الحقيقي هو أجمل ما نقدمه.": "From the first call to the last photograph, we believe genuine care is the best thing we can offer.",
+    "نسمعك قبل أن نخطط": "We listen before we plan",
+    "نبدأ بسؤالك عن طريقتك في السفر، ثم نحول تفضيلاتك إلى تفاصيل مدروسة.": "We ask how you like to travel, then turn your preferences into a carefully considered plan.",
+    "مرونة تشبه يومك": "Flexibility for your day",
+    "خطط قابلة للتعديل، وخيارات واضحة، ومعلومات صريحة تساعدك على اتخاذ القرار.": "Adaptable plans, clear choices, and straightforward information to help you decide.",
+    "شخص معك دائماً": "A person by your side",
+    "دعم بشري حقيقي قبل السفر وأثناءه، لأن الطمأنينة جزء من التجربة.": "Real, personal support before and during your travels, because peace of mind is part of the experience.",
+    "قالوا عن تجربتهم": "What our guests say",
+    "نترك أثراً": "Memories that",
+    "جميلًا": "stay with you",
+    "4.9 من 5": "4.9 out of 5",
+    "من أول اتصال شعرت أن هناك من يفهم ما أريده فعلاً. كانت كل التفاصيل مرتبة، والأجمل أنني عشت الرحلة بدون قلق التخطيط.": "From the first call, I felt they truly understood what I wanted. Every detail was in place, and best of all, I enjoyed the trip without worrying about planning.",
+    "ن": "N",
+    "نوف العتيبي": "Nouf Al-Otaibi",
+    "برنامج عائلي بين مكة والمدينة": "Family trip between Makkah and Madinah",
+    "الدعم كان حاضراً في كل وقت. عدنا بذكريات جميلة وبثقة أننا سنختار أيام الصبا في رحلتنا القادمة.": "Support was always there when we needed it. We returned with wonderful memories and the confidence to choose Ayam Al-Sabah again for our next trip.",
+    "ع": "A",
+    "عبدالله الحربي": "Abdullah Al-Harbi",
+    "برنامج جماعي بين مكة وجدة": "Group trip between Makkah and Jeddah",
+    "لنبدأ الحديث": "Let's talk",
+    "رحلتك القادمة": "Your next journey",
+    "تستحق بداية جميلة.": "deserves a beautiful beginning.",
+    "أخبرنا بما تتخيله، وسنعود إليك باقتراح يليق به. لا التزام، فقط حديث عن مكان تحب أن تراه.": "Tell us what you have in mind, and we will suggest a trip to match. No obligation, just a conversation about a place you would love to see.",
+    "قنوات التواصل المباشر قيد التجهيز": "Direct contact channels are coming soon",
+    "مقرنا في مكة المكرمة": "Based in Makkah",
+    "الاسم الكامل": "Full name",
+    "كيف نناديك؟": "What should we call you?",
+    "البريد الإلكتروني": "Email address",
+    "رقم الجوال": "Mobile number",
+    "موضوع الطلب": "Trip type",
+    "اختر نوع الرحلة": "Choose a trip type",
+    "رحلة عائلية": "Family trip",
+    "رحلة شهر العسل": "Honeymoon",
+    "رحلة فردية": "Solo trip",
+    "رحلة أعمال": "Business trip",
+    "رسالتك": "Your message",
+    "أخبرنا عن الوجهة أو الفكرة التي في بالك...": "Tell us about your destination or idea...",
+    "أرسل استفسارك": "Send your inquiry",
+    "نرتب التفاصيل،": "We take care of the details,",
+    "لتعيش اللحظة.": "so you can enjoy the moment.",
+    "استكشف": "Explore",
+    "بيانات الهاتف والبريد قريباً": "Phone and email details coming soon",
+    "مكة المكرمة، المملكة العربية السعودية": "Makkah, Saudi Arabia",
+    "تابع الرحلة": "Follow the journey",
+    "حساباتنا الاجتماعية قريباً": "Social channels coming soon",
+    "أيام الصبا للسفر والسياحة. جميع الحقوق محفوظة.": "Ayam Al-Sabah Travel & Tourism. All rights reserved.",
+    "صُمم بعناية، لرحلات أجمل.": "Made with care for better journeys.",
+}
+
+
+SOURCE = Path(__file__).resolve().parents[1] / "app" / "site-content.html"
+TARGET = SOURCE.with_name("site-content.en.html")
+arabic = SOURCE.read_text(encoding="utf-8")
+missing = set()
+
+
+def translate(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return value
+    if stripped == "←":
+        return value.replace("←", "→")
+    if stripped in TRANSLATIONS:
+        return value.replace(stripped, escape(TRANSLATIONS[stripped], quote=False))
+    if re.search(r"[\u0600-\u06ff]", stripped):
+        missing.add(stripped)
+    return value
+
+
+english = re.sub(r"(?<=>)([^<>]+)(?=<)", lambda m: translate(m.group(1)), arabic)
+english = re.sub(
+    r'(alt|aria-label|placeholder)="([^"]*)"',
+    lambda m: f'{m.group(1)}="{translate(m.group(2))}"',
+    english,
+)
+english = english.replace('aria-label="English version" class="lang-switch" href="/en">EN',
+                          'aria-label="العربية" class="lang-switch" href="/">عربي')
+if missing:
+    raise ValueError("Missing English translations: " + ", ".join(sorted(missing)))
+TARGET.write_text(english, encoding="utf-8")
